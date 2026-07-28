@@ -2,351 +2,369 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
+from sklearn.ensemble import IsolationForest
 from datetime import datetime
+import json
 
 # ---------------------------------------------------------
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION & CUSTOM INDUSTRIAL THEME CSS
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="SmartPredict AI - Predictive Maintenance",
-    page_icon="⚡",
+    page_title="MSME Edge-AI Predictive Maintenance | Coimbatore",
+    page_icon="🏭",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------------------------------------------------
-# CUSTOM DARK ENTERPRISE UI STYLING (CSS)
-# ---------------------------------------------------------
+# Dark Industrial Glassmorphism CSS
 st.markdown("""
 <style>
-    /* Dark Theme Core Colors */
-    .main { background-color: #0B0E14; }
-    .stApp { color: #E2E8F0; font-family: 'Inter', -apple-system, sans-serif; }
-    
-    /* Hide Streamlit Default Headers */
-    header[data-testid="stHeader"] { visibility: hidden; }
-    
-    /* Card Container Base */
-    .dashboard-card {
-        background-color: #121824;
-        border: 1px solid #1E293B;
-        border-radius: 12px;
-        padding: 18px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        margin-bottom: 12px;
+    .main { background-color: #0E1117; }
+    .stApp { color: #FAFAFA; }
+    .status-badge-healthy {
+        background-color: #00E676;
+        color: #000;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
     }
-    
-    /* Metric KPI Cards */
-    .kpi-card {
-        background-color: #121824;
-        border: 1px solid #1E293B;
-        border-radius: 10px;
-        padding: 14px 16px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    .status-badge-danger {
+        background-color: #FF1744;
+        color: #FFF;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
     }
-    .kpi-title { font-size: 13px; color: #94A3B8; font-weight: 500; }
-    .kpi-value { font-size: 26px; font-weight: 700; color: #FFFFFF; margin: 4px 0; }
-    .kpi-sub { font-size: 11px; font-weight: 500; }
-    
-    /* Status Badges */
-    .badge-healthy { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-    .badge-atrisk { background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-    .badge-critical { background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-    .badge-warning { background: rgba(234, 179, 8, 0.15); color: #EAB308; border: 1px solid rgba(234, 179, 8, 0.3); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-
-    /* Timeline & Alert Lists */
-    .item-box {
-        background-color: #1A2234;
-        border-radius: 8px;
-        padding: 10px 12px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-left: 3px solid #3B82F6;
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 23, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); }
     }
-    
-    /* Custom Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: #0C101A;
-        border-right: 1px solid #1E293B;
-    }
-    
-    /* Tables */
-    .dataframe { background-color: #121824 !important; color: #E2E8F0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# HEADER & COIMBATORE CLUSTER BRANDING
 # ---------------------------------------------------------
-with st.sidebar:
-    st.markdown("""
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-            <div style="background:#2563EB; padding:8px; border-radius:8px; color:white; font-size:18px;">⚙️</div>
-            <div>
-                <h3 style="margin:0; font-size:16px; color:#FFF;">SmartPredict AI</h3>
-                <p style="margin:0; font-size:11px; color:#64748B;">Predictive Maintenance</p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    nav = st.radio(
-        "Navigation",
-        ["Dashboard", "Machines", "AI Predictions", "Real-time Monitor", "Alerts", "Analytics", "Reports", "Maintenance", "Settings"],
-        label_visibility="collapsed"
-    )
-
-    st.markdown("---")
-    
-    # Coimbatore Project Controller / Fault Injector
-    st.markdown("### 🎛️ Demo Fault Injector")
-    fault_severity = st.slider("Inject Bearing Fault (MTR-01)", 0.0, 1.0, 0.1, step=0.05)
-    
-    st.markdown("---")
-    st.markdown("""
-        <div style="background:#121824; border:1px solid #1E293B; padding:12px; border-radius:8px;">
-            <p style="margin:0; font-size:12px; color:#10B981;">🟢 <b>System Status</b></p>
-            <p style="margin:4px 0 0 0; font-size:11px; color:#94A3B8;">All Systems Operational</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# TOP HEADER BAR
-# ---------------------------------------------------------
-top_col1, top_col2, top_col3 = st.columns([2, 2, 1])
+top_col1, top_col2 = st.columns([3, 1])
 
 with top_col1:
-    st.markdown("<h2 style='margin:0; font-size:22px; font-weight:700;'>Dashboard</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='margin:0; font-size:12px; color:#64748B;'>Welcome back, Engineer! | Coimbatore MSME Cluster</p>", unsafe_allow_html=True)
+    st.title("🏭 Edge-AI Predictive Maintenance System")
+    st.caption("📍 **Deployment Cluster:** Peelamedu MSME Pump Cluster, Coimbatore | **Target Asset:** Texmo 15HP CNC Motor Spindle (#CBM-PLM-04)")
 
 with top_col2:
-    st.text_input("🔍 Search machines, sensors, alerts...", label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.success("🛡️ **MSME ZED Certified**\n\n*(Zero Defect, Zero Effect Compliant)*")
 
-with top_col3:
-    st.markdown("""
-        <div style="text-align:right; font-size:12px;">
-            <span style="color:#FFF; font-weight:600;">Engineer</span> <span style="color:#10B981;">● Online</span>
-        </div>
-    """, unsafe_allow_html=True)
+st.markdown("---")
+
+# ---------------------------------------------------------
+# SIDEBAR CONTROL PANEL (FAULTS & HYPERPARAMETERS)
+# ---------------------------------------------------------
+st.sidebar.image("https://img.icons8.com/color/96/engine.png", width=70)
+st.sidebar.header("⚙️ Machine Telemetry Controls")
+
+fault_severity = st.sidebar.slider(
+    "🚨 Inject Bearing Fault Severity",
+    min_value=0.0,
+    max_value=1.0,
+    value=0.0,
+    step=0.05,
+    help="0.0 = Healthy Baseline | 1.0 = Critical Inner Race Bearing Wear"
+)
+
+# Preset Quick Actions for Stage Demo
+st.sidebar.markdown("**⚡ Quick Stage Actions**")
+btn_col1, btn_col2 = st.sidebar.columns(2)
+
+if btn_col1.button("🟢 Normal"):
+    fault_severity = 0.0
+
+if btn_col2.button("🔴 Critical"):
+    fault_severity = 0.85
+
+motor_rpm = st.sidebar.selectbox("Operating Speed (RPM)", [1440, 2880, 3600], index=1)
+sensor_loc = st.sidebar.text_input("Sensor Node ID", "ESP32-MPU6050-NODE-01")
+
+st.sidebar.markdown("---")
+st.sidebar.header("🧠 ML Model Hyperparameters")
+st.sidebar.caption("Adjust real-time Isolation Forest parameters:")
+
+contamination_rate = st.sidebar.slider(
+    "Contamination Rate (α)", 
+    min_value=0.01, 
+    max_value=0.15, 
+    value=0.05, 
+    step=0.01,
+    help="Expected proportion of anomalies in dataset"
+)
+
+n_trees = st.sidebar.slider(
+    "Number of Trees (n_estimators)", 
+    min_value=50, 
+    max_value=300, 
+    value=100, 
+    step=25
+)
+
+sampling_freq = st.sidebar.selectbox(
+    "Edge Sampling Frequency (fs)", 
+    [1024, 2000, 4096], 
+    index=1
+)
+
+# ---------------------------------------------------------
+# SIGNAL GENERATION & FFT SPECTRAL CALCULATIONS
+# ---------------------------------------------------------
+fs = sampling_freq  # Dynamic sampling frequency from sidebar
+t = np.linspace(0, 1, fs)
+
+# Primary Rotational Frequency
+base_freq = motor_rpm / 60.0
+healthy_signal = np.sin(2 * np.pi * base_freq * t) + 0.12 * np.random.normal(size=fs)
+
+# Bearing Fault Harmonics (380 Hz BPFI - Ball Pass Frequency Inner Race)
+defect_freq = 380.0
+fault_harmonics = fault_severity * (
+    1.4 * np.sin(2 * np.pi * defect_freq * t) +
+    0.9 * np.sin(2 * np.pi * (2 * defect_freq) * t) +
+    0.6 * np.random.normal(size=fs)
+)
+
+combined_vibration = healthy_signal + fault_harmonics
+
+# Fast Fourier Transform (FFT)
+fft_vals = np.abs(np.fft.rfft(combined_vibration))
+fft_freqs = np.fft.rfftfreq(len(combined_vibration), 1/fs)
+
+# Feature Extraction
+rms_vibration = np.sqrt(np.mean(combined_vibration**2))
+peak_fft_energy = np.max(fft_vals[fft_freqs > 100])
+kurtosis_val = float(np.mean(((combined_vibration - np.mean(combined_vibration)) / np.std(combined_vibration))**4))
+
+# ---------------------------------------------------------
+# MACHINE LEARNING ANOMALY ENGINE
+# ---------------------------------------------------------
+# Synthetic healthy baseline training data
+healthy_baseline_features = np.array([
+    [np.random.normal(0.7, 0.05), np.random.normal(15, 2), np.random.normal(3.0, 0.2)]
+    for _ in range(120)
+])
+
+# Isolation Forest trained with dynamic sidebar hyperparameters
+clf = IsolationForest(
+    contamination=contamination_rate, 
+    n_estimators=n_trees, 
+    random_state=42
+)
+clf.fit(healthy_baseline_features)
+
+current_features = np.array([[rms_vibration, peak_fft_energy, kurtosis_val]])
+anomaly_prediction = clf.predict(current_features)[0]  # -1 = Anomaly, 1 = Normal
+
+# ---------------------------------------------------------
+# LIVE METRICS & STATUS CARDS
+# ---------------------------------------------------------
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Vibration RMS (ISO 10816)", f"{rms_vibration:.3f} g", delta=f"{fault_severity*100:.0f}% Degradation")
+
+with col2:
+    st.metric("Peak FFT Spectral Energy", f"{peak_fft_energy:.1f} dB", delta_color="off")
+
+with col3:
+    st.metric("Signal Kurtosis (Impulsiveness)", f"{kurtosis_val:.2f}")
+
+with col4:
+    if anomaly_prediction == 1:
+        st.markdown("<p style='font-size:12px; color:#AAA;'>HEALTH STATUS</p>", unsafe_allow_html=True)
+        st.markdown("<div class='status-badge-healthy'>🟢 OPERATIONAL</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='font-size:12px; color:#AAA;'>HEALTH STATUS</p>", unsafe_allow_html=True)
+        st.markdown("<div class='status-badge-danger'>🚨 ANOMALY DETECTED</div>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# ROW 1: 6 KPI METRIC CARDS
-# ---------------------------------------------------------
-kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
+# Status Alert Banner
+if anomaly_prediction == 1:
+    st.success("✅ **SYSTEM HEALTHY:** Spindle vibration parameters are well within normal ISO Class II machine limits. No maintenance required.")
+else:
+    rul_hours = max(1, int(72 * (1 - fault_severity)))
+    st.error(f"🚨 **CRITICAL BEARING WARNING:** Uncharacteristic 380 Hz spectral energy spike detected. Predicted Remaining Useful Life (RUL): **{rul_hours} Hours**. Automated alert dispatched to shop supervisor.")
 
-with kpi1:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Total Machines</div>
-            <div class="kpi-value">120</div>
-            <div class="kpi-sub" style="color:#64748B;">All Connected Machines</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with kpi2:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Healthy Machines</div>
-            <div class="kpi-value" style="color:#10B981;">82</div>
-            <div class="kpi-sub" style="color:#10B981;">68.3% of total</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with kpi3:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Machines at Risk</div>
-            <div class="kpi-value" style="color:#F59E0B;">28</div>
-            <div class="kpi-sub" style="color:#F59E0B;">23.3% of total</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with kpi4:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Critical Machines</div>
-            <div class="kpi-value" style="color:#EF4444;">10</div>
-            <div class="kpi-sub" style="color:#EF4444;">8.4% of total</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with kpi5:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Today's Alerts</div>
-            <div class="kpi-value" style="color:#8B5CF6;">18</div>
-            <div class="kpi-sub" style="color:#64748B;">Updated just now</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-with kpi6:
-    st.markdown("""
-        <div class="kpi-card">
-            <div class="kpi-title">Avg. Health Score</div>
-            <div class="kpi-value" style="color:#06B6D4;">78.6%</div>
-            <div class="kpi-sub" style="color:#10B981;">↑ 5.2% vs yesterday</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # ---------------------------------------------------------
-# ROW 2: ANALYTICS GRID (4 COLUMNS)
+# MAIN TAB NAVIGATION
 # ---------------------------------------------------------
-m_col1, m_col2, m_col3, m_col4 = st.columns([2, 1.6, 1.7, 1.7])
+tab1, tab2, tab3 = st.tabs([
+    "📊 Live Telemetry & Analytics", 
+    "🔬 DSP & Mathematical Foundations", 
+    "📡 Raw MQTT Packet Inspector"
+])
 
-# 1. Machine Health Trend (Line Chart)
-with m_col1:
-    st.markdown("<div style='font-size:13px; font-weight:600; margin-bottom:8px;'>Machine Health Trend</div>", unsafe_allow_html=True)
-    dates = pd.date_range(end=datetime.today(), periods=8).strftime('%b %d')
-    # Dynamic health degradation based on slider
-    health_trend = [80, 85, 78, 65, 50, 62, 75, int(85 * (1 - fault_severity*0.5))]
+# ---------------------------------------------------------
+# TAB 1: LIVE TELEMETRY & CHARTS
+# ---------------------------------------------------------
+with tab1:
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.subheader("📈 Real-Time Acceleration Waveform g(t)")
+        fig_time = go.Figure()
+        fig_time.add_trace(go.Scatter(
+            y=combined_vibration[:350],
+            mode='lines',
+            name='Vibration Signal',
+            line=dict(color='#00E5FF' if anomaly_prediction==1 else '#FF1744', width=2)
+        ))
+        fig_time.update_layout(
+            xaxis_title="Time Samples",
+            yaxis_title="Acceleration (g)",
+            template="plotly_dark",
+            height=320,
+            margin=dict(l=20, r=20, t=30, b=20)
+        )
+        st.plotly_chart(fig_time, use_container_width=True)
+
+    with chart_col2:
+        st.subheader("⚡ Frequency Domain FFT Spectrum (Hz)")
+        fig_fft = go.Figure()
+        fig_fft.add_trace(go.Scatter(
+            x=fft_freqs[:500],
+            y=fft_vals[:500],
+            mode='lines',
+            name='FFT Energy',
+            line=dict(color='#00E676' if anomaly_prediction==1 else '#FF9100', width=2)
+        ))
+        if fault_severity > 0.2:
+            fig_fft.add_annotation(
+                x=defect_freq, y=peak_fft_energy,
+                text="Bearing Defect Peak (380Hz)",
+                showarrow=True, arrowhead=2, arrowcolor="#FF1744", ax=40, ay=-30
+            )
+        fig_fft.update_layout(
+            xaxis_title="Frequency (Hz)",
+            yaxis_title="Spectral Energy",
+            template="plotly_dark",
+            height=320,
+            margin=dict(l=20, r=20, t=30, b=20)
+        )
+        st.plotly_chart(fig_fft, use_container_width=True)
+
+    bot_col1, bot_col2 = st.columns(2)
+
+    with bot_col1:
+        st.subheader("💬 Automated WhatsApp / Telegram Webhook Log")
+        if anomaly_prediction == -1:
+            st.code(f"""
+[DISPATCHED via Twilio API] 📲
+Receiver: +91 98422 XXXXX (Ramesh - Factory Owner, Peelamedu)
+Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+--------------------------------------------------------------
+⚠️ CRITICAL BEARING WEAR WARNING!
+Machine ID: CBM-PLM-04 (Texmo Spindle #2)
+Peak Defect Frequency: {defect_freq} Hz
+Vibration RMS: {rms_vibration:.3f} g (Exceeds ISO Threshold)
+Estimated Downtime Avoided Loss: ~₹2,500,000
+Recommended Action: Inspect inner race bearing before next shift.
+--------------------------------------------------------------
+            """, language="yaml")
+        else:
+            st.info("ℹ️ System in healthy state. Webhook triggers automatically when anomaly score breaches isolation threshold.")
+
+    with bot_col2:
+        st.subheader("📄 Export Inspection & Compliance Log")
+        st.write("Generate an audit report for local MSME ZED Certification compliance.")
+        
+        report_df = pd.DataFrame([{
+            "Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "Machine_ID": "CBM-PLM-04",
+            "Location": "Peelamedu, Coimbatore",
+            "Operating_RPM": motor_rpm,
+            "Vibration_RMS_g": round(rms_vibration, 4),
+            "Kurtosis": round(kurtosis_val, 2),
+            "Peak_FFT_Frequency_Hz": defect_freq if fault_severity > 0 else base_freq,
+            "Status": "ANOMALY" if anomaly_prediction == -1 else "HEALTHY",
+            "Predicted_RUL_Hours": max(1, int(72 * (1 - fault_severity))) if anomaly_prediction == -1 else 720
+        }])
+        
+        st.dataframe(report_df, use_container_width=True)
+        
+        csv_data = report_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Official ZED Maintenance Audit Report (CSV)",
+            data=csv_data,
+            file_name=f"ZED_Maintenance_Log_CBM_PLM_04_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+
+# ---------------------------------------------------------
+# TAB 2: MATHEMATICAL FOUNDATIONS
+# ---------------------------------------------------------
+with tab2:
+    st.subheader("🔬 Signal Processing & Algorithmic Equations")
+    st.markdown("This Edge-AI system transforms raw time-series vibration data into frequency-domain metrics before running unsupervised anomaly classification.")
     
-    fig_trend = go.Figure()
-    fig_trend.add_trace(go.Scatter(
-        x=dates, y=health_trend,
-        mode='lines+markers',
-        line=dict(color='#2563EB', width=2),
-        fill='tozeroy',
-        fillcolor='rgba(37, 99, 235, 0.1)'
-    ))
-    fig_trend.update_layout(
-        template="plotly_dark",
-        height=200,
-        margin=dict(l=20, r=20, t=10, b=20),
-        yaxis=dict(range=[0, 100], gridcolor='#1E293B'),
-        xaxis=dict(gridcolor='#1E293B')
-    )
-    st.plotly_chart(fig_trend, use_container_width=True)
+    m_col1, m_col2 = st.columns(2)
+    
+    with m_col1:
+        st.markdown("#### 1. Root Mean Square (RMS) Acceleration")
+        st.latex(r"RMS = \sqrt{\frac{1}{N} \sum_{i=1}^{N} x_i^2}")
+        st.caption("Measures total energy content of the vibration signal according to ISO 10816 standards.")
+        
+        st.markdown("#### 2. Fast Fourier Transform (FFT) Decomposition")
+        st.latex(r"X(k) = \sum_{n=0}^{N-1} x(n) \cdot e^{-i 2\pi k n / N}")
+        st.caption("Decomposes complex time-domain waveforms into individual mechanical frequency harmonics.")
 
-# 2. Equipment Health Distribution (Doughnut Chart)
-with m_col2:
-    st.markdown("<div style='font-size:13px; font-weight:600; margin-bottom:8px;'>Equipment Health Distribution</div>", unsafe_allow_html=True)
-    fig_donut = go.Figure(data=[go.Pie(
-        labels=['Healthy', 'At Risk', 'Critical'],
-        values=[82, 28, 10],
-        hole=.6,
-        marker_colors=['#10B981', '#F59E0B', '#EF4444'],
-        textinfo='none'
-    )])
-    fig_donut.add_annotation(text="<b>120</b><br><span style='font-size:10px;'>Total</span>", x=0.5, y=0.5, font_size=14, showarrow=False, font_color="#FFF")
-    fig_donut.update_layout(
-        template="plotly_dark",
-        height=200,
-        margin=dict(l=10, r=10, t=10, b=10),
-        showlegend=True,
-        legend=dict(font=dict(size=10), orientation="v")
-    )
-    st.plotly_chart(fig_donut, use_container_width=True)
-
-# 3. Failure Prediction Timeline
-with m_col3:
-    st.markdown("<div style='font-size:13px; font-weight:600; margin-bottom:8px;'>Failure Prediction Timeline</div>", unsafe_allow_html=True)
-    st.markdown("""
-        <div style="background:#121824; border:1px solid #1E293B; padding:10px; border-radius:10px; height:200px; overflow-y:auto;">
-            <div class="item-box" style="border-left-color:#EF4444;">
-                <div><b style="font-size:12px;">MTR-01 (Texmo CNC)</b><br><span style="font-size:10px; color:#64748B;">Predicted Failure: May 20</span></div>
-                <span class="badge-critical">Critical</span>
-            </div>
-            <div class="item-box" style="border-left-color:#F59E0B;">
-                <div><b style="font-size:12px;">PMP-07 (Water Pump)</b><br><span style="font-size:10px; color:#64748B;">Predicted Failure: May 25</span></div>
-                <span class="badge-atrisk">At Risk</span>
-            </div>
-            <div class="item-box" style="border-left-color:#EAB308;">
-                <div><b style="font-size:12px;">CMP-02 (Compressor)</b><br><span style="font-size:10px; color:#64748B;">Predicted Failure: Jun 02</span></div>
-                <span class="badge-warning">Warning</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-# 4. Recent Alerts
-with m_col4:
-    st.markdown("<div style='font-size:13px; font-weight:600; margin-bottom:8px;'>Recent Alerts</div>", unsafe_allow_html=True)
-    st.markdown("""
-        <div style="background:#121824; border:1px solid #1E293B; padding:10px; border-radius:10px; height:200px; overflow-y:auto;">
-            <div style="margin-bottom:10px; border-bottom:1px solid #1E293B; padding-bottom:6px;">
-                <span style="color:#EF4444; font-weight:600; font-size:11px;">⚠️ Motor-01</span>
-                <span style="color:#64748B; font-size:10px; float:right;">2 min ago</span>
-                <p style="margin:2px 0 0 0; font-size:11px; color:#94A3B8;">High vibration 380Hz spectral spike detected.</p>
-            </div>
-            <div style="margin-bottom:10px; border-bottom:1px solid #1E293B; padding-bottom:6px;">
-                <span style="color:#F59E0B; font-weight:600; font-size:11px;">⚠️ Pump-07</span>
-                <span style="color:#64748B; font-size:10px; float:right;">15 min ago</span>
-                <p style="margin:2px 0 0 0; font-size:11px; color:#94A3B8;">Temperature threshold exceeded (78°C).</p>
-            </div>
-            <div>
-                <span style="color:#EAB308; font-weight:600; font-size:11px;">⚠️ Compressor-02</span>
-                <span style="color:#64748B; font-size:10px; float:right;">1 hr ago</span>
-                <p style="margin:2px 0 0 0; font-size:11px; color:#94A3B8;">Pressure fluctuation warning.</p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+    with m_col2:
+        st.markdown("#### 3. Spectral Kurtosis (Transient Impact Peakiness)")
+        st.latex(r"Kurtosis = \frac{\frac{1}{N}\sum_{i=1}^{N}(x_i - \bar{x})^4}{\left(\frac{1}{N}\sum_{i=1}^{N}(x_i - \bar{x})^2\right)^2}")
+        st.caption("Detects sharp, repetitive micro-shocks caused by inner/outer bearing race defects.")
+        
+        st.markdown("#### 4. Isolation Forest Anomaly Scoring")
+        st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
+        st.caption("Unsupervised tree isolation path length calculation. Shorter path lengths denote immediate anomalies.")
 
 # ---------------------------------------------------------
-# ROW 3: MAIN MACHINE OVERVIEW TABLE & AI ASSISTANT
+# TAB 3: RAW MQTT PACKET INSPECTOR
 # ---------------------------------------------------------
-b_col1, b_col2 = st.columns([3.2, 1.2])
-
-with b_col1:
-    st.markdown("<div style='font-size:15px; font-weight:600; margin-bottom:12px;'>Machine Overview</div>", unsafe_allow_html=True)
+with tab3:
+    st.subheader("📡 Edge Sensor Payload Stream (MQTT Protocol)")
+    st.markdown("Live view of raw telemetry JSON packets transmitted from the ESP32 microcontroller edge node to the broker.")
     
-    # Machine Dataset
-    machines_data = [
-        {"Machine ID": "MTR-01", "Machine Name": "Texmo Main Motor 01", "Health (%)": max(10, int(92.4 * (1 - fault_severity))), "RUL (Days)": max(1, int(45 * (1 - fault_severity))), "Status": "Critical" if fault_severity > 0.5 else "Healthy", "Last Updated": "Just now"},
-        {"Machine ID": "PMP-07", "Machine Name": "CRI Water Pump 07", "Health (%)": 65.3, "RUL (Days)": 12, "Status": "At Risk", "Last Updated": "5 min ago"},
-        {"Machine ID": "CMP-02", "Machine Name": "Air Compressor 02", "Health (%)": 48.7, "RUL (Days)": 5, "Status": "Critical", "Last Updated": "1 min ago"},
-        {"Machine ID": "TUR-04", "Machine Name": "LMW Turbine 04", "Health (%)": 85.1, "RUL (Days)": 30, "Status": "Healthy", "Last Updated": "3 min ago"},
-        {"Machine ID": "GEN-03", "Machine Name": "Generator Node 03", "Health (%)": 71.6, "RUL (Days)": 18, "Status": "At Risk", "Last Updated": "10 min ago"},
-    ]
-    
-    df_machines = pd.DataFrame(machines_data)
-    
-    # Styled Table Display
-    st.dataframe(
-        df_machines,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Health (%)": st.column_config.ProgressColumn("Health (%)", format="%.1f%%", min_value=0, max_value=100),
-            "Status": st.column_config.TextColumn("Status")
+    mqtt_payload = {
+        "header": {
+            "protocol": "MQTT v3.1.1",
+            "topic": "coimbatore/peelamedu/unit2/machine04/telemetry",
+            "qos": 1,
+            "timestamp_utc": datetime.utcnow().isoformat() + "Z"
+        },
+        "edge_device": {
+            "node_id": sensor_loc,
+            "microcontroller": "ESP32 Dual-Core 240MHz",
+            "sensor": "MPU6050 Accelerometer",
+            "firmware_ver": "v2.1.4-edge-dsp"
+        },
+        "telemetry_metrics": {
+            "sampling_frequency_hz": sampling_freq,
+            "operating_rpm": motor_rpm,
+            "vibration_rms_g": round(rms_vibration, 4),
+            "spectral_kurtosis": round(kurtosis_val, 3),
+            "peak_defect_freq_hz": defect_freq if fault_severity > 0 else base_freq,
+            "peak_energy_db": round(peak_fft_energy, 2)
+        },
+        "edge_inference": {
+            "model_architecture": "Isolation Forest (scikit-learn)",
+            "n_estimators": n_trees,
+            "contamination_alpha": contamination_rate,
+            "anomaly_flag": bool(anomaly_prediction == -1),
+            "predicted_rul_hours": max(1, int(72 * (1 - fault_severity))) if anomaly_prediction == -1 else 720
         }
-    )
-
-with b_col2:
-    st.markdown("<div style='font-size:15px; font-weight:600; margin-bottom:12px;'>System Overview & AI Assistant</div>", unsafe_allow_html=True)
+    }
     
-    # Overview Panel
-    st.markdown("""
-        <div style="background:#121824; border:1px solid #1E293B; padding:14px; border-radius:10px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
-                <span style="color:#94A3B8;">Performance</span>
-                <b style="color:#FFF;">78.6%</b>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
-                <span style="color:#94A3B8;">Efficiency</span>
-                <b style="color:#FFF;">82.4%</b>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:12px;">
-                <span style="color:#94A3B8;">Reliability</span>
-                <b style="color:#FFF;">91.2%</b>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # AI Assistant Box
-    st.markdown("""
-        <div style="background:#121824; border:1px solid #1E293B; padding:14px; border-radius:10px;">
-            <div style="font-size:12px; font-weight:600; color:#3B82F6; margin-bottom:8px;">✨ AI Assistant ● Online</div>
-            <p style="font-size:12px; color:#CBD5E1; margin-bottom:10px;">Hello Engineer! How can I help you analyze the Coimbatore MSME telemetry today?</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    chat_prompt = st.text_input("Ask AI Assistant...", placeholder="Type your message...", label_visibility="collapsed")
-    if chat_prompt:
-        st.info(f"🤖 **AI Response:** Analyzing telemetry for '{chat_prompt}'... No critical failure risk detected beyond MTR-01.")
+    st.json(mqtt_payload)
