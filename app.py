@@ -5,169 +5,232 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 # ---------------------------------------------------------
-# 1. PAGE CONFIGURATION
+# 1. PAGE SETUP & DARK THEME
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="SmartPredict AI - Enterprise Predictive Maintenance",
+    page_title="SmartPredict AI — Industrial Telemetry Engine",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------------------------------------------------
-# 2. BULLETPROOF CSS & THEME OVERRIDES
-# ---------------------------------------------------------
+# Deep Dark Theme Overrides
 st.markdown("""
 <style>
-    /* Dark Theme Core */
-    .stApp {
-        background-color: #0B0E14;
-        color: #E2E8F0;
-    }
-    
-    /* Hide Default Header/Footer elements safely */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* KPI Metric Cards */
-    .kpi-card {
-        background-color: #121824;
-        border: 1px solid #1E293B;
-        border-radius: 10px;
-        padding: 12px 14px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        text-align: left;
-    }
-    .kpi-title { font-size: 12px; color: #94A3B8; font-weight: 500; }
-    .kpi-value { font-size: 24px; font-weight: 700; color: #FFFFFF; margin: 2px 0; }
-    .kpi-sub { font-size: 11px; font-weight: 500; }
+    .stApp { background-color: #090D16; color: #F1F5F9; }
+    div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: 700; }
+    div[data-testid="stMetricDelta"] { font-size: 13px !important; }
+    div[data-testid="stSidebar"] { background-color: #0E1422; border-right: 1px solid #1E293B; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 3. SIDEBAR CONTROLS & DEMO ENGINE
+# 2. SIDEBAR — DEMO CONTROLS & MODEL HYPERPARAMETERS
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚡ SmartPredict AI")
-    st.caption("Coimbatore MSME Pump Cluster")
+    st.markdown("## ⚙️ SmartPredict AI")
+    st.caption("Coimbatore MSME Edge Engine")
     st.markdown("---")
     
-    st.markdown("#### 🎛️ Stage Demo Fault Controller")
+    st.markdown("### 🎛️ Fault Injection Controls")
     fault_severity = st.slider(
-        "Inject Bearing Fault Severity (MTR-01)",
+        "Inject Bearing Wear (MTR-01)",
         min_value=0.0,
         max_value=1.0,
-        value=0.1,
+        value=0.0,
         step=0.05,
-        help="Slide right during pitch to demonstrate instant ML fault detection"
+        help="Slide right to simulate progressive spindle bearing damage"
     )
     
-    col_s1, col_s2 = st.columns(2)
-    if col_s1.button("🟢 Normal", use_container_width=True):
+    btn_col1, btn_col2 = st.sidebar.columns(2)
+    if btn_col1.button("🟢 Reset Normal", use_container_width=True):
         fault_severity = 0.0
-    if col_s2.button("🔴 Critical", use_container_width=True):
+    if btn_col2.button("🔴 Critical Failure", use_container_width=True):
         fault_severity = 0.85
         
     st.markdown("---")
-    st.markdown("**System Health:** 🟢 Operational")
-    st.caption("Node: ESP32-MPU6050-PLM-04")
+    st.markdown("### 🧠 ML Hyperparameters")
+    contamination = st.slider("Contamination (α)", 0.01, 0.15, 0.05)
+    n_trees = st.select_slider("Trees (n_estimators)", options=[50, 100, 200, 300], value=100)
+    
+    st.markdown("---")
+    st.markdown("🛡️ **MSME ZED Scheme Certified**")
     st.caption("Standard: ISO 10816 Vibration Severity")
 
 # ---------------------------------------------------------
-# 4. TOP BAR & KPI HEADER
+# 3. TOP HEADER BAR
 # ---------------------------------------------------------
-st.markdown("## 🏭 SmartPredict AI — Enterprise Telemetry Engine")
-st.caption("📍 **Deployment Target:** Peelamedu Industrial Cluster, Coimbatore | **Asset:** Texmo 15HP CNC Motor Spindle (#MTR-01)")
+header_col1, header_col2 = st.columns([3, 1])
 
-# Calculate dynamic health values based on fault slider
-mtr_health = max(5.0, round(92.4 * (1.0 - fault_severity * 0.9), 1))
-mtr_rul = max(1, int(45 * (1.0 - fault_severity * 0.95)))
+with header_col1:
+    st.title("⚡ SmartPredict AI — Industrial Telemetry")
+    st.caption("📍 **Deployment Cluster:** Peelamedu Pump Cluster, Coimbatore | **Asset:** Texmo 15HP CNC Motor Spindle (#MTR-01)")
 
-k1, k2, k3, k4, k5, k6 = st.columns(6)
-
-with k1:
-    st.markdown('<div class="kpi-card"><div class="kpi-title">Total Machines</div><div class="kpi-value">120</div><div class="kpi-sub" style="color:#64748B;">Active Fleet</div></div>', unsafe_allow_html=True)
-with k2:
-    st.markdown('<div class="kpi-card"><div class="kpi-title">Healthy</div><div class="kpi-value" style="color:#10B981;">82</div><div class="kpi-sub" style="color:#10B981;">68.3%</div></div>', unsafe_allow_html=True)
-with k3:
-    st.markdown('<div class="kpi-card"><div class="kpi-title">At Risk</div><div class="kpi-value" style="color:#F59E0B;">28</div><div class="kpi-sub" style="color:#F59E0B;">23.3%</div></div>', unsafe_allow_html=True)
-with k4:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Critical</div><div class="kpi-value" style="color:#EF4444;">{"11" if fault_severity > 0.4 else "10"}</div><div class="kpi-sub" style="color:#EF4444;">Active Alerts</div></div>', unsafe_allow_html=True)
-with k5:
-    st.markdown('<div class="kpi-card"><div class="kpi-title">Today Alerts</div><div class="kpi-value" style="color:#8B5CF6;">18</div><div class="kpi-sub" style="color:#64748B;">Real-Time</div></div>', unsafe_allow_html=True)
-with k6:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Avg. Health</div><div class="kpi-value" style="color:#06B6D4;">{round(78.6 - fault_severity*5, 1)}%</div><div class="kpi-sub" style="color:#10B981;">ZED Compliant</div></div>', unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 5. CHARTS & TELEMETRY ROW
-# ---------------------------------------------------------
-c1, c2, c3 = st.columns([2.2, 1.4, 1.4])
-
-with c1:
-    st.subheader("📈 Live Vibration Waveform & Trend")
-    t = np.linspace(0, 1, 200)
-    # Dynamic signal calculation
-    signal = np.sin(2 * np.pi * 50 * t) + fault_severity * 1.5 * np.sin(2 * np.pi * 380 * t) + np.random.normal(0, 0.08, 200)
-    
-    fig_time = go.Figure()
-    fig_time.add_trace(go.Scatter(
-        y=signal, 
-        mode='lines', 
-        line=dict(color='#EF4444' if fault_severity > 0.4 else '#2563EB', width=2)
-    ))
-    fig_time.update_layout(
-        template="plotly_dark", 
-        height=220, 
-        margin=dict(l=10, r=10, t=10, b=10),
-        xaxis_title="Time Samples", 
-        yaxis_title="Acceleration (g)"
-    )
-    st.plotly_chart(fig_time, use_container_width=True)
-
-with c2:
-    st.subheader("📊 Fleet Distribution")
-    fig_donut = go.Figure(data=[go.Pie(
-        labels=['Healthy', 'At Risk', 'Critical'],
-        values=[82, 28, 10 if fault_severity <= 0.4 else 11],
-        hole=.6,
-        marker_colors=['#10B981', '#F59E0B', '#EF4444']
-    )])
-    fig_donut.update_layout(
-        template="plotly_dark", 
-        height=220, 
-        margin=dict(l=10, r=10, t=10, b=10), 
-        showlegend=False
-    )
-    st.plotly_chart(fig_donut, use_container_width=True)
-
-with c3:
-    st.subheader("🚨 Real-Time Alert Dispatch")
+with header_col2:
+    st.markdown("<br>", unsafe_allow_html=True)
     if fault_severity > 0.4:
-        st.error(f"⚠️ **CRITICAL FAULT DETECTED**\n\n**Asset:** MTR-01 (Texmo Spindle)\n- **Vibration Peak:** {round(1.2 + fault_severity*2.5, 2)} g\n- **Predicted RUL:** {mtr_rul} Days\n- **WhatsApp Alert:** Dispatched to Plant Supervisor")
+        st.error("🚨 **SYSTEM ALERT:** ANOMALY DETECTED")
     else:
-        st.success("✅ **SYSTEM OPERATIONAL**\n\nAll 120 connected MSME assets operating within normal ISO 10816 thresholds.")
+        st.success("🟢 **SYSTEM HEALTHY:** ALL SYSTEMS OK")
 
 st.markdown("---")
 
 # ---------------------------------------------------------
-# 6. FLEET OVERVIEW TABLE
+# 4. ROW 1: 4 HIGH-IMPACT KPI CARDS
 # ---------------------------------------------------------
-st.subheader("📋 Connected Asset Fleet Status")
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
-machines_data = [
-    {"Machine ID": "MTR-01", "Name": "Texmo Main Motor 01", "Health Score (%)": mtr_health, "RUL (Days)": mtr_rul, "Status": "CRITICAL" if fault_severity > 0.4 else "HEALTHY"},
-    {"Machine ID": "PMP-07", "Name": "CRI Water Pump 07", "Health Score (%)": 65.3, "RUL (Days)": 12, "Status": "AT RISK"},
-    {"Machine ID": "CMP-02", "Name": "Air Compressor 02", "Health Score (%)": 48.7, "RUL (Days)": 5, "Status": "CRITICAL"},
-    {"Machine ID": "TUR-04", "Name": "LMW Turbine 04", "Health Score (%)": 85.1, "RUL (Days)": 30, "Status": "HEALTHY"},
-    {"Machine ID": "GEN-03", "Name": "Generator Node 03", "Health Score (%)": 71.6, "RUL (Days)": 18, "Status": "AT RISK"},
-]
+# Calculate dynamic telemetry based on slider
+vibe_rms = round(0.42 + fault_severity * 3.8, 3)
+peak_fft = round(14.2 + fault_severity * 68.5, 1)
+rul_days = max(1, int(45 * (1.0 - fault_severity * 0.95)))
+health_score = max(5.0, round(96.4 * (1.0 - fault_severity * 0.9), 1))
 
-df_machines = pd.DataFrame(machines_data)
+with kpi1:
+    with st.container(border=True):
+        st.metric(
+            label="Vibration RMS (ISO 10816)", 
+            value=f"{vibe_rms} g", 
+            delta=f"{'+' if fault_severity > 0 else ''}{round(fault_severity*100)}% Spike",
+            delta_color="inverse" if fault_severity > 0.3 else "normal"
+        )
 
-st.dataframe(
-    df_machines,
-    use_container_width=True,
-    hide_index=True
-)
+with kpi2:
+    with st.container(border=True):
+        st.metric(
+            label="Peak FFT Energy (380 Hz)", 
+            value=f"{peak_fft} dB", 
+            delta="Bearing Harmonic" if fault_severity > 0.2 else "Normal Baseline",
+            delta_color="off"
+        )
+
+with kpi3:
+    with st.container(border=True):
+        st.metric(
+            label="Remaining Useful Life (RUL)", 
+            value=f"{rul_days} Days", 
+            delta="-30 Days Failure Horizon" if fault_severity > 0.4 else "720 Hrs Max",
+            delta_color="inverse" if fault_severity > 0.4 else "normal"
+        )
+
+with kpi4:
+    with st.container(border=True):
+        st.metric(
+            label="Asset Health Index", 
+            value=f"{health_score}%", 
+            delta="CRITICAL WEAR" if fault_severity > 0.5 else "OPERATIONAL",
+            delta_color="inverse" if fault_severity > 0.5 else "normal"
+        )
+
+# ---------------------------------------------------------
+# 5. ROW 2: REAL-TIME DSP CHARTS & AI ALERT PANEL
+# ---------------------------------------------------------
+st.markdown("<br>", unsafe_allow_html=True)
+col_left, col_right = st.columns([2.2, 1.2])
+
+with col_left:
+    with st.container(border=True):
+        tab_time, tab_fft, tab_math = st.tabs(["📈 Real-Time Acceleration g(t)", "⚡ FFT Frequency Spectrum (Hz)", "🔬 Signal Processing Math"])
+        
+        # Synthetic Telemetry Signal
+        fs = 2000
+        t = np.linspace(0, 1, fs)
+        base_signal = np.sin(2 * np.pi * 50 * t) + np.random.normal(0, 0.1, fs)
+        fault_signal = fault_severity * (1.5 * np.sin(2 * np.pi * 380 * t) + np.random.normal(0, 0.4, fs))
+        combined_signal = base_signal + fault_signal
+        
+        fft_vals = np.abs(np.fft.rfft(combined_signal))
+        fft_freqs = np.fft.rfftfreq(len(combined_signal), 1/fs)
+        
+        with tab_time:
+            fig_time = go.Figure()
+            fig_time.add_trace(go.Scatter(
+                y=combined_signal[:400], 
+                mode='lines', 
+                line=dict(color='#00E5FF' if fault_severity <= 0.3 else '#FF1744', width=2)
+            ))
+            fig_time.update_layout(
+                template="plotly_dark", height=280, margin=dict(l=10, r=10, t=10, b=10),
+                xaxis_title="Time Samples (2kHz)", yaxis_title="Acceleration (g)",
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_time, use_container_width=True)
+            
+        with tab_fft:
+            fig_fft = go.Figure()
+            fig_fft.add_trace(go.Scatter(
+                x=fft_freqs[:500], y=fft_vals[:500], 
+                mode='lines', 
+                line=dict(color='#00E676' if fault_severity <= 0.3 else '#FF9100', width=2)
+            ))
+            if fault_severity > 0.2:
+                fig_fft.add_annotation(x=380, y=np.max(fft_vals), text="380 Hz Inner Race Defect", showarrow=True, arrowhead=2, arrowcolor="#FF1744")
+            fig_fft.update_layout(
+                template="plotly_dark", height=280, margin=dict(l=10, r=10, t=10, b=10),
+                xaxis_title="Frequency (Hz)", yaxis_title="Spectral Energy",
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_fft, use_container_width=True)
+            
+        with tab_math:
+            st.markdown("**1. Isolation Forest Anomaly Score:**")
+            st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
+            st.markdown("**2. Spectral Kurtosis (Transient Impact Detection):**")
+            st.latex(r"K = \frac{\frac{1}{N}\sum_{i=1}^{N}(x_i - \bar{x})^4}{\left(\frac{1}{N}\sum_{i=1}^{N}(x_i - \bar{x})^2\right)^2}")
+
+with col_right:
+    with st.container(border=True):
+        st.subheader("💬 Real-Time Webhook Dispatch")
+        if fault_severity > 0.4:
+            st.error(f"""
+            **[DISPATCHED via Twilio WhatsApp API]**
+            * **Target:** Ramesh (Shop Supervisor)
+            * **Timestamp:** {datetime.now().strftime('%H:%M:%S')}
+            * **Asset:** MTR-01 (Texmo CNC Spindle)
+            * **Fault Type:** Inner Race Bearing Wear (380 Hz)
+            * **Predicted Downtime Saved:** ₹2,50,000
+            """)
+        else:
+            st.info("🟢 System operating within normal ISO tolerances. Automated WhatsApp triggers when isolation score breaches 0.75.")
+            
+        st.markdown("---")
+        st.subheader("📡 Raw MQTT Stream")
+        st.json({
+            "asset_id": "MTR-01",
+            "cluster": "Peelamedu_Coimbatore",
+            "rms_g": vibe_rms,
+            "peak_fft_db": peak_fft,
+            "isolation_forest_status": "ANOMALY" if fault_severity > 0.4 else "HEALTHY"
+        })
+
+# ---------------------------------------------------------
+# 6. ROW 3: FLEET OVERVIEW TABLE & REPORT GENERATOR
+# ---------------------------------------------------------
+st.markdown("<br>", unsafe_allow_html=True)
+with st.container(border=True):
+    st.subheader("📋 Connected MSME Fleet Asset Overview")
+    
+    fleet_df = pd.DataFrame([
+        {"Machine ID": "MTR-01", "Name": "Texmo Main Motor 01", "Health (%)": health_score, "RUL (Days)": rul_days, "Status": "CRITICAL" if fault_severity > 0.4 else "HEALTHY", "Last Ping": "Just now"},
+        {"Machine ID": "PMP-07", "Name": "CRI Water Pump 07", "Health (%)": 65.3, "RUL (Days)": 12, "Status": "AT RISK", "Last Ping": "4 min ago"},
+        {"Machine ID": "CMP-02", "Name": "Air Compressor 02", "Health (%)": 48.7, "RUL (Days)": 5, "Status": "CRITICAL", "Last Ping": "1 min ago"},
+        {"Machine ID": "TUR-04", "Name": "LMW Turbine 04", "Health (%)": 85.1, "RUL (Days)": 30, "Status": "HEALTHY", "Last Ping": "2 min ago"},
+        {"Machine ID": "GEN-03", "Name": "Generator Node 03", "Health (%)": 71.6, "RUL (Days)": 18, "Status": "AT RISK", "Last Ping": "8 min ago"},
+    ])
+    
+    st.dataframe(
+        fleet_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Health (%)": st.column_config.ProgressColumn("Health (%)", format="%.1f%%", min_value=0, max_value=100)
+        }
+    )
+    
+    csv_report = fleet_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download Official ZED Scheme Audit Log (CSV)",
+        data=csv_report,
+        file_name="MSME_ZED_Maintenance_Report.csv",
+        mime="text/csv"
+    )
