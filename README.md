@@ -14,18 +14,18 @@ Unscheduled machinery breakdown in industrial SME clusters (such as the Coimbato
 
 **VibeGuard AI** bridges this gap. By coupling a low-cost **ESP32 Edge Node** ($30) with an **Unsupervised Isolation Forest ML Engine**, VibeGuard AI delivers real-time Fast Fourier Transform (FFT) spectral analysis, remaining useful life (RUL) estimation, and automated emergency WhatsApp webhook dispatches—aligning with India's **MSME ZED Scheme (Zero Defect, Zero Effect)**.
 
-
+---
 ## 🏗️ System Architecture
 
 
 
-                           ┌─────────────────────────┐
+┌─────────────────────────┐
                            │   Texmo CNC Spindle     │
                            └───────────┬─────────────┘
                                        │ Vibration
                            ┌───────────▼─────────────┐
                            │ ESP32 + MPU6050 (I2C)   │
-                           │ High-Speed g(t) Sample  │
+                           │ High-Speed g(t) Sample │
                            └───────────┬─────────────┘
                                        │ Serial / MQTT JSON Stream
                            ┌───────────▼─────────────┐
@@ -50,8 +50,7 @@ Unscheduled machinery breakdown in industrial SME clusters (such as the Coimbato
 │ Live WhatsApp Alert     │
 │  to Plant Supervisor    │
 └─────────────────────────┘
-
-
+---
 
 
 ## ✨ Key Features & Technical Innovation
