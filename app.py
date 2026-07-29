@@ -3,8 +3,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
+import time
 
-# Import modular helper functions from your custom scripts
+# Import modular helper functions
 from dsp_engine import (
     generate_synthetic_signal,
     extract_vibration_features,
@@ -14,13 +15,13 @@ from dsp_engine import (
 from alerts import send_whatsapp_alert
 
 # ---------------------------------------------------------
-# 1. PAGE SETUP
+# 1. PAGE SETUP & CONFIGURATION
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="VibeGuard AI — Enterprise Predictive Telemetry",
+    page_title="PulseGuard AI — Enterprise Predictive Telemetry",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded" # Force sidebar visible
 )
 
 # Initialize ML Anomaly Detector once in memory
@@ -57,47 +58,63 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 3. SIDEBAR CONTROLS
+# 3. SIDEBAR CONTROLS & LIVE STREAM TOGGLE
 # ---------------------------------------------------------
 with st.sidebar:
     st.markdown("""
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
             <div style="background:#00E5FF; padding:8px 12px; border-radius:8px; color:#000; font-weight:900;">⚡</div>
             <div>
-                <h3 style="margin:0; font-size:16px; font-weight:800; color:#FFF;">VibeGuard AI</h3>
+                <h3 style="margin:0; font-size:16px; font-weight:800; color:#FFF;">PulseGuard AI</h3>
                 <p style="margin:0; font-size:10px; color:#64748B;">Peelamedu Telemetry Node</p>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.markdown("### 🎛️ Stage Pitch Controls")
+    st.markdown("### 🎛️ Live Pitch Controls")
+    
+    # Live Streaming Mode Switch
+    live_stream = st.toggle("📡 Live Streaming Mode", value=True, help="Continuously updates telemetry graphs in real-time")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
     
     fault_severity = st.slider(
         "Bearing Severity Level",
         min_value=0.0,
         max_value=1.0,
-        value=0.05,
-        step=0.05
+        value=st.session_state.get("severity_val", 0.05),
+        step=0.05,
+        key="severity_slider"
     )
     
     col_b1, col_b2 = st.columns(2)
     if col_b1.button("🟢 Normal", use_container_width=True):
-        fault_severity = 0.05
+        st.session_state["severity_val"] = 0.05
+        st.rerun()
     if col_b2.button("🔴 Critical", use_container_width=True):
-        fault_severity = 0.85
+        st.session_state["severity_val"] = 0.85
+        st.rerun()
         
     st.markdown("---")
     st.markdown("### 🛡️ System Specifications")
-    st.markdown("- **Location:** Peelamedu MSME Belt")
+    st.markdown("- **Location:** Peelamedu MSME Cluster")
     st.markdown("- **Standard:** ISO 10816-3 Class II")
     st.markdown("- **Sampling Rate:** 2,000 Hz Edge Stream")
 
 # ---------------------------------------------------------
-# 4. SIGNAL GENERATION & DSP PROCESSING (NO NAME ERROR)
+# 4. SIGNAL GENERATION & LIVE DSP PROCESSING
 # ---------------------------------------------------------
-# Generate raw vibration signal g(t)
-t_samples, raw_vibration_signal = generate_synthetic_signal(fault_severity=fault_severity)
+# Add live stochastic noise when streaming mode is active so waveform actively shifts
+noise_offset = np.random.normal(0, 0.03) if live_stream else 0.0
+effective_severity = max(0.0, fault_severity + noise_offset)
+
+t_samples, raw_vibration_signal = generate_synthetic_signal(fault_severity=effective_severity)
+
+# Phase shift for live scrolling effect
+if live_stream:
+    time_shift = int((time.time() * 50) % len(raw_vibration_signal))
+    raw_vibration_signal = np.roll(raw_vibration_signal, time_shift)
 
 # Extract DSP metrics from dsp_engine.py
 features = extract_vibration_features(raw_vibration_signal)
@@ -105,7 +122,7 @@ iso_eval = evaluate_iso_severity(features["rms_g"])
 anomaly_score = detector.predict_anomaly_score(features["rms_g"], features["kurtosis"], features["crest_factor"])
 rul_days = max(1, int(45 * (1.0 - fault_severity * 0.95)))
 
-# Automatically attempt alert dispatch if anomaly score breaches threshold
+# Automatically dispatch alert if threshold breached
 if features["rms_g"] > 2.80:
     send_whatsapp_alert(
         asset_id="MTR-01",
@@ -119,7 +136,7 @@ if features["rms_g"] > 2.80:
 col_h1, col_h2 = st.columns([3, 1.2])
 
 with col_h1:
-    st.title("⚡ VibeGuard AI — Predictive Telemetry")
+    st.title("⚡ PulseGuard AI — Predictive Telemetry")
     st.caption("📍 **Monitored Asset:** Texmo 15HP CNC Motor Spindle (#MTR-01) | **Sampling Frequency:** 2,000 Hz Continuous")
 
 with col_h2:
@@ -132,7 +149,7 @@ with col_h2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. KPI METRICS
+# 6. KPI METRICS CARDS
 # ---------------------------------------------------------
 k1, k2, k3, k4 = st.columns(4)
 
@@ -175,7 +192,7 @@ with k4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 7. SIGNAL PLOTS & ALERTS
+# 7. SIGNAL PLOTS & LIVE ALERTS
 # ---------------------------------------------------------
 c_left, c_right = st.columns([2.3, 1.1])
 
@@ -219,11 +236,12 @@ with c_right:
             "rms_g": features["rms_g"],
             "kurtosis": features["kurtosis"],
             "isolation_score": anomaly_score,
-            "iso_zone": iso_eval["zone"]
+            "iso_zone": iso_eval["zone"],
+            "timestamp": datetime.now().strftime("%H:%M:%S.%f")[:-3]
         })
 
 # ---------------------------------------------------------
-# 8. FLEET TABLE
+# 8. FLEET MATRIX TABLE
 # ---------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
 with st.container(border=True):
@@ -237,3 +255,10 @@ with st.container(border=True):
     ])
     
     st.dataframe(fleet_df, use_container_width=True, hide_index=True)
+
+# ---------------------------------------------------------
+# 9. AUTO-REFRESH ANIMATION LOOP
+# ---------------------------------------------------------
+if live_stream:
+    time.sleep(0.8)  # Refresh every 800ms
+    st.rerun()
